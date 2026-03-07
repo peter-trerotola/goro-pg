@@ -27,31 +27,24 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc
+        run: sudo apt-get update && sudo apt-get install -y gcc gcc-aarch64-linux-gnu
 
-      - name: Build binary
-        run: CGO_ENABLED=1 go build -o go-postgres-mcp ./cmd/main.go
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+
+      - name: Build all targets (GoReleaser snapshot)
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: latest
+          args: build --snapshot --clean
 
       - name: Build Docker image
         run: docker build -t go-postgres-mcp .
-
-  test-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Run tests
-        run: CGO_ENABLED=1 go test ./... -v -race
-
-      - name: Build binary
-        run: CGO_ENABLED=1 go build -o go-postgres-mcp ./cmd/main.go
