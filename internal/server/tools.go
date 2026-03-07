@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/petros/go-postgres-mcp/internal/config"
+	"github.com/petros/go-postgres-mcp/internal/guard"
+	"github.com/petros/go-postgres-mcp/internal/knowledgemap"
 	"github.com/petros/go-postgres-mcp/internal/postgres"
 )
 
@@ -29,6 +32,9 @@ func queryTool() mcp.Tool {
 		mcp.WithDescription("Execute a read-only SELECT query against a PostgreSQL database. Only SELECT statements are allowed."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
 		mcp.WithString("sql", mcp.Required(), mcp.Description("SQL SELECT query to execute")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -36,12 +42,18 @@ func discoverTool() mcp.Tool {
 	return mcp.NewTool("discover",
 		mcp.WithDescription("Discover or refresh the schema for a configured database. Crawls tables, columns, constraints, indexes, views, and functions."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database to discover")),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
 func listDatabasesTool() mcp.Tool {
 	return mcp.NewTool("list_databases",
 		mcp.WithDescription("List all configured databases from the knowledge map."),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -49,6 +61,9 @@ func listSchemasTool() mcp.Tool {
 	return mcp.NewTool("list_schemas",
 		mcp.WithDescription("List schemas in a database from the knowledge map."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -57,6 +72,9 @@ func listTablesTool() mcp.Tool {
 		mcp.WithDescription("List tables in a schema from the knowledge map."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
 		mcp.WithString("schema", mcp.Required(), mcp.Description("Schema name (e.g. 'public')")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -66,6 +84,9 @@ func describeTableTool() mcp.Tool {
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
 		mcp.WithString("schema", mcp.Required(), mcp.Description("Schema name")),
 		mcp.WithString("table", mcp.Required(), mcp.Description("Table name")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -74,6 +95,9 @@ func listViewsTool() mcp.Tool {
 		mcp.WithDescription("List views in a schema from the knowledge map."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
 		mcp.WithString("schema", mcp.Required(), mcp.Description("Schema name")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -82,6 +106,9 @@ func listFunctionsTool() mcp.Tool {
 		mcp.WithDescription("List functions in a schema from the knowledge map."),
 		mcp.WithString("database", mcp.Required(), mcp.Description("Name of the configured database")),
 		mcp.WithString("schema", mcp.Required(), mcp.Description("Schema name")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -89,6 +116,9 @@ func searchSchemaTool() mcp.Tool {
 	return mcp.NewTool("search_schema",
 		mcp.WithDescription("Full-text search across all schema metadata in the knowledge map."),
 		mcp.WithString("query", mcp.Required(), mcp.Description("Search query keywords")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 }
 
@@ -127,10 +157,72 @@ func (a *App) handleQuery(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	result, err := postgres.ReadOnlyQuery(ctx, a.pools, dbName, sqlStr)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(a.enrichError(err, dbName, sqlStr)), nil
 	}
 
+	// Populate schema context from knowledge map
+	result.SchemaContext = a.buildSchemaContext(dbName, sqlStr)
+
 	return marshalResult(result)
+}
+
+// buildSchemaContext extracts table refs from SQL and looks up columns from the knowledge map.
+// Note: SQL is parsed again here after guard.Validate in ReadOnlyQuery. The double parse
+// is intentional — ReadOnlyQuery validates internally as defense-in-depth, and pg_query
+// parsing is sub-millisecond. The Postgres round-trip dominates query latency.
+func (a *App) buildSchemaContext(dbName, sqlStr string) map[string][]knowledgemap.ColumnSummary {
+	tableRefs := guard.ExtractTableRefs(sqlStr)
+	if len(tableRefs) == 0 {
+		return nil
+	}
+
+	ctx := make(map[string][]knowledgemap.ColumnSummary, len(tableRefs))
+	for _, ref := range tableRefs {
+		cols, err := a.store.ListColumnsCompact(dbName, ref.Schema, ref.Table)
+		if err != nil || len(cols) == 0 {
+			continue
+		}
+		key := ref.Schema + "." + ref.Table
+		ctx[key] = cols
+	}
+
+	if len(ctx) == 0 {
+		return nil
+	}
+	return ctx
+}
+
+// enrichError appends schema hints to query errors involving unknown columns or tables.
+func (a *App) enrichError(err error, dbName, sqlStr string) string {
+	msg := err.Error()
+
+	if !strings.Contains(msg, "does not exist") {
+		return msg
+	}
+
+	tableRefs := guard.ExtractTableRefs(sqlStr)
+	if len(tableRefs) == 0 {
+		return msg
+	}
+
+	var hints []string
+	for _, ref := range tableRefs {
+		cols, lookupErr := a.store.ListColumnsCompact(dbName, ref.Schema, ref.Table)
+		if lookupErr != nil || len(cols) == 0 {
+			continue
+		}
+		parts := make([]string, len(cols))
+		for i, c := range cols {
+			parts[i] = c.Column + " (" + c.Type + ")"
+		}
+		hints = append(hints, fmt.Sprintf("  %s.%s: %s", ref.Schema, ref.Table, strings.Join(parts, ", ")))
+	}
+
+	if len(hints) == 0 {
+		return msg
+	}
+
+	return msg + "\n\nSchema for referenced tables:\n" + strings.Join(hints, "\n")
 }
 
 func (a *App) handleDiscover(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

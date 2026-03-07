@@ -528,3 +528,55 @@ func TestClearDatabase_OnlyAffectsTargetDB(t *testing.T) {
 		t.Errorf("expected db2 to remain, got %q", dbs[0].Name)
 	}
 }
+
+func TestListColumnsCompact_ReturnsOrdinalOrder(t *testing.T) {
+	store := openTestStore(t)
+	seedTestData(t, store)
+
+	cols, err := store.ListColumnsCompact("testdb", "public", "users")
+	if err != nil {
+		t.Fatalf("ListColumnsCompact: %v", err)
+	}
+	if len(cols) != 3 {
+		t.Fatalf("expected 3 columns, got %d", len(cols))
+	}
+	// Verify ordinal order
+	expected := []ColumnSummary{
+		{Column: "id", Type: "integer"},
+		{Column: "name", Type: "text"},
+		{Column: "email", Type: "text"},
+	}
+	for i, want := range expected {
+		if cols[i].Column != want.Column {
+			t.Errorf("col[%d].Column: expected %q, got %q", i, want.Column, cols[i].Column)
+		}
+		if cols[i].Type != want.Type {
+			t.Errorf("col[%d].Type: expected %q, got %q", i, want.Type, cols[i].Type)
+		}
+	}
+}
+
+func TestListColumnsCompact_NonexistentTable(t *testing.T) {
+	store := openTestStore(t)
+	seedTestData(t, store)
+
+	cols, err := store.ListColumnsCompact("testdb", "public", "nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cols) != 0 {
+		t.Errorf("expected 0 columns for nonexistent table, got %d", len(cols))
+	}
+}
+
+func TestListColumnsCompact_NonexistentDB(t *testing.T) {
+	store := openTestStore(t)
+
+	cols, err := store.ListColumnsCompact("nodb", "public", "users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cols) != 0 {
+		t.Errorf("expected 0 columns, got %d", len(cols))
+	}
+}

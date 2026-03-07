@@ -143,6 +143,24 @@ func (s *Store) DescribeTable(dbName, schemaName, tableName string) (*TableDetai
 	return detail, nil
 }
 
+// ColumnSummary is a compact representation of a column (name + type only).
+type ColumnSummary struct {
+	Column string `json:"column" db:"column_name"`
+	Type   string `json:"type" db:"data_type"`
+}
+
+// ListColumnsCompact returns column names and types for a table in ordinal order.
+func (s *Store) ListColumnsCompact(dbName, schema, table string) ([]ColumnSummary, error) {
+	var result []ColumnSummary
+	err := s.db.Select(&result,
+		`SELECT column_name, data_type FROM km_columns
+		WHERE database_name = ? AND schema_name = ? AND table_name = ?
+		ORDER BY ordinal`,
+		dbName, schema, table,
+	)
+	return result, err
+}
+
 type ViewRow struct {
 	SchemaName  string         `json:"schema_name" db:"schema_name"`
 	ViewName    string         `json:"view_name" db:"view_name"`

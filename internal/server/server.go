@@ -29,6 +29,17 @@ func New(cfg *config.Config) (*App, error) {
 	mcpSrv := mcpserver.NewMCPServer(
 		"go-postgres-mcp",
 		"1.0.0",
+		mcpserver.WithInstructions(`This server provides read-only access to PostgreSQL databases.
+
+Workflow:
+1. Use list_databases to see available databases.
+2. Use list_tables or describe_table to understand schema BEFORE writing queries.
+3. Use query to execute read-only SELECT statements.
+
+Query results include a schema_context field with column names and types for all referenced tables. Use this to verify column names in follow-up queries.
+
+If a query fails with a column or table error, check the schema hint in the error message for correct names.`),
+		mcpserver.WithResourceCapabilities(false, true),
 	)
 
 	app := &App{
@@ -39,6 +50,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	app.registerTools()
+	app.registerResources()
 	return app, nil
 }
 
