@@ -42,7 +42,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.13.0
+          version: 0.14.0
 
       - name: Run tests
         run: CGO_ENABLED=1 go test ./... -race

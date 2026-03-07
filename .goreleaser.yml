@@ -34,9 +34,9 @@ builds:
       - -s -w
 
   # macOS targets use Zig as C cross-compiler.
-  # Zig is pinned to 0.13.0 in CI/release workflows because pg_query_go's
+  # Zig is pinned to 0.14.0 in CI/release workflows because pg_query_go's
   # bundled C code conflicts with macOS 15.4+ SDK headers (strchrnul
-  # static/non-static redeclaration). Zig 0.13.0 ships a pre-15.4 SDK.
+  # static/non-static redeclaration). Zig 0.14.0 ships a pre-15.4 SDK.
   # Revisit when pg_query_go fixes upstream:
   # https://github.com/pganalyze/pg_query_go/issues/XXX
   - id: darwin-amd64
