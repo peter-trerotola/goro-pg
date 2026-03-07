@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.1.1...v1.1.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* add workflow_dispatch trigger to release workflow ([#24](https://github.com/peter-trerotola/go-postgres-mcp/issues/24)) ([af2b57c](https://github.com/peter-trerotola/go-postgres-mcp/commit/af2b57c26764c3ba30062b2382e5ede4d96c4758))
+* use draft releases to support immutable release assets ([#23](https://github.com/peter-trerotola/go-postgres-mcp/issues/23)) ([b8cc3c6](https://github.com/peter-trerotola/go-postgres-mcp/commit/b8cc3c6ce422971bc4da513035c6c0c36857f104))
+
 ## [1.1.1](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.1.0...v1.1.1) (2026-03-07)
 
 
