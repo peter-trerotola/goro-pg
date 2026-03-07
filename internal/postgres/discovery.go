@@ -16,8 +16,12 @@ import (
 // Schema and table filters from the config are applied during discovery.
 //
 // All 8 PG queries (schemas, tables, columns, constraints, indexes, foreign
-// keys, views, functions) run concurrently. Results are then written to SQLite
-// in dependency order: schemas → tables → everything else.
+// keys, views, functions) run concurrently using separate read-only transactions.
+// This trades strict snapshot consistency for parallelism — concurrent DDL during
+// discovery could yield slightly inconsistent results. This is acceptable because
+// the target is a read-only replica where DDL does not occur, and re-discovery
+// corrects any transient inconsistencies.
+// Results are written to SQLite in dependency order: schemas → tables → everything else.
 func Discover(ctx context.Context, pool *pgxpool.Pool, dbCfg config.DatabaseConfig, store *knowledgemap.Store) error {
 	if err := store.ClearDatabase(dbCfg.Name); err != nil {
 		return fmt.Errorf("clearing database %q: %w", dbCfg.Name, err)
@@ -332,7 +336,7 @@ func fetchConstraints(ctx context.Context, pool *pgxpool.Pool, dbCfg config.Data
 		JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
 		JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 		WHERE n.nspname NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
-		  AND c.relkind = 'r'
+		  AND c.relkind <> 'm'
 		ORDER BY n.nspname, c.relname, con.conname`)
 	if err != nil {
 		return nil, fmt.Errorf("querying constraints: %w", err)
@@ -373,7 +377,7 @@ func fetchIndexes(ctx context.Context, pool *pgxpool.Pool, dbCfg config.Database
 		JOIN pg_catalog.pg_class i ON i.oid = ix.indexrelid
 		JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
 		WHERE n.nspname NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
-		  AND t.relkind = 'r'
+		  AND t.relkind <> 'm'
 		ORDER BY n.nspname, t.relname, i.relname`)
 	if err != nil {
 		return nil, fmt.Errorf("querying indexes: %w", err)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/petros/go-postgres-mcp/internal/config"
 	"github.com/petros/go-postgres-mcp/internal/knowledgemap"
@@ -62,7 +63,7 @@ func (a *App) Start(ctx context.Context) error {
 				continue
 			}
 			wg.Add(1)
-			go func(dbCfg config.DatabaseConfig) {
+			go func(pool *pgxpool.Pool, dbCfg config.DatabaseConfig) {
 				defer wg.Done()
 				log.Printf("auto-discovering schema for %q", dbCfg.Name)
 				if err := postgres.Discover(ctx, pool, dbCfg, a.store); err != nil {
@@ -70,7 +71,7 @@ func (a *App) Start(ctx context.Context) error {
 				} else {
 					log.Printf("auto-discovery complete for %q", dbCfg.Name)
 				}
-			}(dbCfg)
+			}(pool, dbCfg)
 		}
 		wg.Wait()
 	}
