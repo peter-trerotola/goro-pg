@@ -7,7 +7,7 @@ import (
 )
 
 // CheckAST parses the SQL using PostgreSQL's actual parser and validates
-// that it contains only safe read-only statements. This is Tier 2 of
+// that it contains only safe read-only statements. This is Tier 1 of
 // read-only enforcement.
 func CheckAST(sql string) error {
 	tree, err := pg_query.Parse(sql)

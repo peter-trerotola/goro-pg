@@ -48,7 +48,7 @@ func (d *DatabaseConfig) Password() (string, error) {
 
 // ConnString builds a PostgreSQL connection string with read-only mode enforced
 // via the default_transaction_read_only runtime parameter (Tier 2 protection).
-// Password and user are URL-encoded to handle special characters safely.
+// All components are properly URL-encoded to prevent parameter injection.
 func (d *DatabaseConfig) ConnString() (string, error) {
 	password, err := d.Password()
 	if err != nil {
@@ -58,12 +58,27 @@ func (d *DatabaseConfig) ConnString() (string, error) {
 	if sslmode == "" {
 		sslmode = "prefer"
 	}
+	switch sslmode {
+	case "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
+		// ok
+	default:
+		return "", fmt.Errorf("invalid sslmode %q for database %q", sslmode, d.Name)
+	}
 	port := d.Port
 	if port == 0 {
 		port = 5432
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s&default_transaction_read_only=on",
-		url.QueryEscape(d.User), url.QueryEscape(password), d.Host, port, d.Database, sslmode), nil
+	u := &url.URL{
+		Scheme: "postgres",
+		Host:   fmt.Sprintf("%s:%d", d.Host, port),
+		Path:   "/" + d.Database,
+	}
+	u.User = url.UserPassword(d.User, password)
+	q := u.Query()
+	q.Set("sslmode", sslmode)
+	q.Set("default_transaction_read_only", "on")
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 // ShouldIncludeSchema reports whether the given schema should be included

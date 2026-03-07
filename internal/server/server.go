@@ -51,7 +51,11 @@ func (a *App) Start(ctx context.Context) error {
 
 		if a.cfg.KnowledgeMap.AutoDiscoverOnStartup {
 			log.Printf("auto-discovering schema for %q", dbCfg.Name)
-			pool, _ := a.pools.Get(dbCfg.Name)
+			pool, err := a.pools.Get(dbCfg.Name)
+			if err != nil {
+				log.Printf("warning: auto-discovery skipped for %q: failed to get pool: %v", dbCfg.Name, err)
+				continue
+			}
 			if err := postgres.Discover(ctx, pool, dbCfg, a.store); err != nil {
 				log.Printf("warning: auto-discovery failed for %q: %v", dbCfg.Name, err)
 			} else {

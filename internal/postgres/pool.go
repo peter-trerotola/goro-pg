@@ -22,7 +22,7 @@ func NewPoolManager() *PoolManager {
 }
 
 // Connect creates a connection pool for a database config.
-// The connection string includes default_transaction_read_only=on (Tier 3).
+// The connection string includes default_transaction_read_only=on (Tier 2).
 func (pm *PoolManager) Connect(ctx context.Context, dbCfg config.DatabaseConfig) error {
 	connStr, err := dbCfg.ConnString()
 	if err != nil {

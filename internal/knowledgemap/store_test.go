@@ -435,6 +435,14 @@ func TestSearchSchema_EmptyQuery(t *testing.T) {
 	}
 }
 
+func TestSearchSchema_WhitespaceOnlyQuery(t *testing.T) {
+	store := openTestStore(t)
+	_, err := store.SearchSchema("   ")
+	if err == nil {
+		t.Fatal("expected error for whitespace-only query")
+	}
+}
+
 func TestIndexForSearch_ReindexClears(t *testing.T) {
 	store := openTestStore(t)
 	seedTestData(t, store)

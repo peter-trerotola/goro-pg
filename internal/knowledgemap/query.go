@@ -194,7 +194,7 @@ type SearchResult struct {
 func sanitizeFTSQuery(query string) string {
 	tokens := strings.Fields(query)
 	if len(tokens) == 0 {
-		return query
+		return ""
 	}
 	for i, t := range tokens {
 		// Remove any existing double quotes to avoid injection

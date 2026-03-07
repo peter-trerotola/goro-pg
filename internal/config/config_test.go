@@ -382,6 +382,26 @@ func TestConnString_SpecialCharactersInUser(t *testing.T) {
 	}
 }
 
+func TestConnString_InvalidSSLMode(t *testing.T) {
+	t.Setenv("TEST_SSL_PASS", "secret")
+	db := DatabaseConfig{
+		Name:        "test",
+		Host:        "localhost",
+		Port:        5432,
+		Database:    "mydb",
+		User:        "myuser",
+		PasswordEnv: "TEST_SSL_PASS",
+		SSLMode:     "disable&options=-c statement_timeout=0",
+	}
+	_, err := db.ConnString()
+	if err == nil {
+		t.Fatal("expected error for invalid sslmode")
+	}
+	if !strings.Contains(err.Error(), "invalid sslmode") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestConnString_MissingPassword(t *testing.T) {
 	os.Unsetenv("MISSING_PASS_XYZ")
 	db := DatabaseConfig{

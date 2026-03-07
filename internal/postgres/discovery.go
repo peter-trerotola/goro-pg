@@ -11,7 +11,7 @@ import (
 )
 
 // Discover crawls a PostgreSQL database schema and populates the knowledge map.
-// All data for the database is cleared and re-inserted atomically.
+// All existing knowledge map data for the database is cleared and then re-inserted.
 // Schema and table filters from the config are applied during discovery.
 func Discover(ctx context.Context, pool *pgxpool.Pool, dbCfg config.DatabaseConfig, store *knowledgemap.Store) error {
 	if err := store.ClearDatabase(dbCfg.Name); err != nil {

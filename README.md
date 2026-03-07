@@ -225,7 +225,8 @@ go-postgres-mcp/
 │   │   ├── readonly.go              # Guarded query execution (Tier 3)
 │   │   └── discovery.go             # Schema discovery with filtering
 │   ├── knowledgemap/
-│   │   ├── schema.go                # SQLite DDL
+│   │   ├── schema.go                # Embeds SQLite DDL (schema.sql)
+│   │   ├── schema.sql               # SQLite DDL (tables, FTS5)
 │   │   ├── store.go                 # SQLite CRUD operations (sqlx)
 │   │   ├── store_test.go            # Knowledge map CRUD + FTS tests
 │   │   └── query.go                 # Knowledge map query methods (sqlx)
