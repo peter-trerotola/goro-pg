@@ -33,12 +33,11 @@ builds:
     ldflags:
       - -s -w
 
-  # macOS targets use Zig as C cross-compiler.
-  # Zig is pinned to 0.14.0 in CI/release workflows because pg_query_go's
-  # bundled C code conflicts with macOS 15.4+ SDK headers (strchrnul
-  # static/non-static redeclaration). Zig 0.14.0 ships a pre-15.4 SDK.
-  # Revisit when pg_query_go fixes upstream:
-  # https://github.com/pganalyze/pg_query_go/issues/XXX
+  # macOS targets use Zig as C cross-compiler from Linux.
+  # CGO_CFLAGS includes -DHAVE_STRCHRNUL because pg_query_go's bundled C
+  # code defines a static strchrnul, which conflicts with macOS 15.4+ SDK
+  # headers that declare it non-static. The define tells pg_query_go to use
+  # the system's strchrnul instead of its own.
   - id: darwin-amd64
     main: ./cmd/main.go
     binary: go-postgres-mcp
@@ -48,6 +47,7 @@ builds:
       - amd64
     env:
       - CGO_ENABLED=1
+      - CGO_CFLAGS=-DHAVE_STRCHRNUL
       - CC=zig cc -target x86_64-macos
     flags:
       - -trimpath
@@ -63,6 +63,7 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=1
+      - CGO_CFLAGS=-DHAVE_STRCHRNUL
       - CC=zig cc -target aarch64-macos
     flags:
       - -trimpath

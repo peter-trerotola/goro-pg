@@ -37,12 +37,8 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc gcc-aarch64-linux-gnu
 
-      # Pinned to 0.13.0: pg_query_go's bundled C code conflicts with the
-      # macOS 15.4 SDK shipped in Zig 0.15+. See .goreleaser.yml for details.
       - name: Install Zig
         uses: mlugg/setup-zig@v2
-        with:
-          version: 0.14.0
 
       - name: Build all targets (GoReleaser snapshot)
         uses: goreleaser/goreleaser-action@v7
