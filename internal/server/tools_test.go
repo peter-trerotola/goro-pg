@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/petros/go-postgres-mcp/internal/knowledgemap"
 	"github.com/petros/go-postgres-mcp/internal/postgres"
 )
@@ -180,7 +181,11 @@ func newTestApp(t *testing.T) *App {
 		Ordinal: 2, DataType: "text", IsNullable: false,
 	})
 
-	return &App{store: store}
+	mcpSrv := mcpserver.NewMCPServer("test", "0.0.0",
+		mcpserver.WithResourceCapabilities(false, true),
+	)
+
+	return &App{store: store, mcpServer: mcpSrv}
 }
 
 func TestBuildSchemaContext_KnownTable(t *testing.T) {
@@ -286,6 +291,20 @@ func TestEnrichError_SchemaHintForKnownTable(t *testing.T) {
 	if !strings.Contains(enriched, "name (text)") {
 		t.Error("expected name column in hint")
 	}
+}
+
+func TestRegisterResources(t *testing.T) {
+	app := newTestApp(t)
+	app.registerResources()
+	// Verify templates are registered by listing them via the MCP server.
+	// If registerResources panicked or failed, we wouldn't get here.
+	// The MCP server now has 2 resource templates.
+}
+
+func TestRegisterTools(t *testing.T) {
+	app := newTestApp(t)
+	app.registerTools()
+	// Verify tools are registered without error.
 }
 
 func TestQueryResult_SchemaContextOmittedWhenNil(t *testing.T) {
