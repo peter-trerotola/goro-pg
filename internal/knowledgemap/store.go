@@ -16,10 +16,14 @@ type Store struct {
 // Open creates or opens a SQLite database at the given path and initializes
 // the schema. WAL mode and foreign keys are enabled.
 func Open(path string) (*Store, error) {
-	db, err := sqlx.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=foreign_keys(on)")
+	db, err := sqlx.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=foreign_keys(on)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite: %w", err)
 	}
+	// Serialize all SQLite access through a single connection.
+	// This prevents SQLITE_BUSY errors during concurrent discovery
+	// while PG queries still run in parallel across goroutines.
+	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(ddl); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("initializing schema: %w", err)
