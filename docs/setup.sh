@@ -6,7 +6,7 @@
 
 set -e
 
-CONFIG_FILE="${CONFIG_FILE:-config.yaml}"
+CONFIG_FILE="${CONFIG_FILE:-${HOME}/.config/go-postgres-mcp/config.yaml}"
 
 # --- colors (tty-aware) ---
 
@@ -227,14 +227,12 @@ if ask_yn "discover all databases on this host?"; then
     printf '\n' >&2
     DATABASES=$(collect_databases)
   else
-    if [ -n "$DB_PASSWORD" ]; then
-      PASS="$DB_PASSWORD"
-    else
-      PASS=$(ask_secret "password (for discovery, not stored):")
+    if [ -z "$DB_PASSWORD" ]; then
+      DB_PASSWORD=$(ask_secret "password:")
     fi
     info "connecting to ${BOLD}${DB_HOST}:${DB_PORT}${RST}..."
     TMP_ERR=$(mktemp)
-    DISCOVERED=$(PGPASSWORD="$PASS" psql \
+    DISCOVERED=$(PGPASSWORD="$DB_PASSWORD" psql \
       -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres \
       --no-psqlrc -t -A \
       -c "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY datname" \
@@ -248,7 +246,6 @@ if ask_yn "discover all databases on this host?"; then
       DISCOVERED=""
     }
     rm -f "$TMP_ERR"
-    PASS=""
     if [ -n "$DISCOVERED" ]; then
       DB_COUNT=$(echo "$DISCOVERED" | wc -l | tr -d ' ')
       ok "found ${BOLD}${DB_COUNT}${RST} databases:"
@@ -356,6 +353,12 @@ info "${BOLD}config file${RST}:  ${GREEN}${CONFIG_FILE}${RST}"
 printf '\n' >&2
 
 # --- write config ---
+
+CONFIG_DIR=$(dirname "$CONFIG_FILE")
+if [ ! -d "$CONFIG_DIR" ]; then
+  mkdir -p "$CONFIG_DIR"
+  ok "created ${BOLD}${CONFIG_DIR}${RST}"
+fi
 
 {
   echo "databases:"
