@@ -97,6 +97,14 @@ escape_yaml_string() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+expand_tilde() {
+  case "$1" in
+    "~/"*) printf '%s' "${HOME}/${1#\~/}" ;;
+    "~")   printf '%s' "$HOME" ;;
+    *)     printf '%s' "$1" ;;
+  esac
+}
+
 # --- start ---
 
 if [ -z "$GO_POSTGRES_MCP_NO_BANNER" ]; then
@@ -125,7 +133,9 @@ fi
 ohai "go-postgres-mcp setup"
 printf '\n' >&2
 
-CONFIG_FILE=$(ask_default "config file path" "${CONFIG_FILE}")
+CONFIG_DISPLAY=$(echo "$CONFIG_FILE" | sed "s|^${HOME}/|~/|")
+CONFIG_FILE=$(ask_default "config file path" "${CONFIG_DISPLAY}")
+CONFIG_FILE=$(expand_tilde "$CONFIG_FILE")
 ok "config file path: ${BOLD}${CONFIG_FILE}${RST}"
 printf '\n' >&2
 
@@ -227,7 +237,7 @@ if ask_yn "discover all databases on this host?"; then
     DATABASES=$(collect_databases)
   else
     if [ -z "$DB_PASSWORD" ]; then
-      DB_PASSWORD=$(ask_secret "password:")
+      DB_PASSWORD=$(ask_secret "password (for discovery, not stored):")
     fi
     info "connecting to ${BOLD}${DB_HOST}:${DB_PORT}${RST}..."
     TMP_ERR=$(mktemp)
@@ -245,6 +255,7 @@ if ask_yn "discover all databases on this host?"; then
       DISCOVERED=""
     }
     rm -f "$TMP_ERR"
+    DB_PASSWORD=""
     if [ -n "$DISCOVERED" ]; then
       DB_COUNT=$(echo "$DISCOVERED" | wc -l | tr -d ' ')
       ok "found ${BOLD}${DB_COUNT}${RST} databases:"
