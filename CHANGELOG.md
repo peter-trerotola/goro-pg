@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.6.0...v1.6.1) (2026-03-08)
+
+
+### Bug Fixes
+
+* correct read-only protection description on site ([#54](https://github.com/peter-trerotola/go-postgres-mcp/issues/54)) ([e8edbee](https://github.com/peter-trerotola/go-postgres-mcp/commit/e8edbee173c32f405c90b530e66c73e514d5394d))
+
 ## [1.6.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.5.3...v1.6.0) (2026-03-08)
 
 
