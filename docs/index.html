@@ -285,10 +285,15 @@
     <div class="section">
       <div class="section-label">config</div>
       <div class="config-tabs">
-        <button class="config-tab active" onclick="showTab('minimal')" aria-label="Show minimal config">minimal</button>
+        <button class="config-tab active" onclick="showTab('setup')" aria-label="Show interactive setup">setup</button>
+        <button class="config-tab" onclick="showTab('minimal')" aria-label="Show minimal config">minimal</button>
         <button class="config-tab" onclick="showTab('scoped')" aria-label="Show scoped config">scoped</button>
       </div>
-      <div class="config-block" id="tab-minimal">
+      <div class="config-block" id="tab-setup">
+        <pre><code><span class="c"># interactive setup — prompts for connection details, generates config.yaml</span></code></pre>
+        <div class="cmd" id="setup-cmd" style="margin-top: 8px">curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/setup.sh | sh<button class="copy-btn" aria-label="Copy setup command" onclick="copy('setup-cmd')">cp</button></div>
+      </div>
+      <div class="config-block hidden" id="tab-minimal">
         <button class="copy-btn" aria-label="Copy minimal config" onclick="copyConfig('tab-minimal')">cp</button>
         <pre><code><span class="c"># config.yaml — full discovery, all schemas and tables</span>
 <span class="k">databases</span>:
