@@ -31,6 +31,31 @@ echo "go-postgres-mcp setup"
 echo "====================="
 echo ""
 
+# Check for read-only user
+if ! prompt_yn "do you have a read-only postgresql user?"; then
+  echo ""
+  echo "  create one by running the following SQL as a superuser:"
+  echo ""
+  echo "    CREATE ROLE mcp_reader WITH LOGIN PASSWORD 'your-password';"
+  echo "    GRANT CONNECT ON DATABASE your_db TO mcp_reader;"
+  echo "    GRANT USAGE ON SCHEMA public TO mcp_reader;"
+  echo "    GRANT SELECT ON ALL TABLES IN SCHEMA public TO mcp_reader;"
+  echo "    ALTER DEFAULT PRIVILEGES IN SCHEMA public"
+  echo "      GRANT SELECT ON TABLES TO mcp_reader;"
+  echo ""
+  echo "  for multiple schemas, repeat the GRANT USAGE / GRANT SELECT"
+  echo "  lines for each schema."
+  echo ""
+  echo "  the ALTER DEFAULT PRIVILEGES line ensures future tables are"
+  echo "  also readable. adjust the schema and role name as needed."
+  echo ""
+  if ! prompt_yn "ready to continue?"; then
+    echo "  run this script again when ready." >&2
+    exit 0
+  fi
+  echo ""
+fi
+
 # Database config
 DB_NAME=$(prompt_default "database name (label)" "mydb")
 DB_HOST=$(prompt_default "host" "localhost")
