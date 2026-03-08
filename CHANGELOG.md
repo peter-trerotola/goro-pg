@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.5.3...v1.6.0) (2026-03-08)
+
+
+### Features
+
+* add GitHub Pages site and curl-installable script ([#52](https://github.com/peter-trerotola/go-postgres-mcp/issues/52)) ([dd6887e](https://github.com/peter-trerotola/go-postgres-mcp/commit/dd6887edbaa84ef6e574312bec0eba6736d5ffc4))
+
 ## [1.5.3](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.5.2...v1.5.3) (2026-03-08)
 
 
