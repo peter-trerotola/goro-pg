@@ -186,9 +186,8 @@ EXISTING_PASSWORD=$(eval "echo \"\${$DB_PASSWORD_ENV}\"" 2>/dev/null || true)
 
 if [ -n "$EXISTING_PASSWORD" ]; then
   ok "${DB_PASSWORD_ENV} is already set in your environment"
-  if ask_yn "use the existing value?"; then
+  if ask_yn "use it?"; then
     DB_PASSWORD="$EXISTING_PASSWORD"
-    ok "using existing ${BOLD}${DB_PASSWORD_ENV}${RST}"
   fi
 fi
 
