@@ -16,14 +16,14 @@
       --dim: #505050;
       --green: #4af626;
       --cyan: #00d4aa;
-      --yellow: #d4a017;
+      --accent: #58a6ff;
       --border: #252525;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      font-family: 'JetBrains Mono', monospace;
       background: var(--bg);
       color: var(--text);
       font-size: 14px;
@@ -71,7 +71,6 @@
     .section-label {
       color: var(--dim);
       font-size: 11px;
-      text-transform: uppercase;
       letter-spacing: 0.15em;
       margin-bottom: 12px;
     }
@@ -108,6 +107,13 @@
     }
 
     .copy-btn:hover { color: var(--text); border-color: var(--dim); }
+
+    .copy-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      color: var(--text);
+      border-color: var(--accent);
+    }
 
     .alt-label {
       color: var(--dim);
@@ -204,11 +210,11 @@
 
     <div class="section">
       <div class="section-label">install</div>
-      <div class="cmd" id="curl-cmd">curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/install.sh | sh<button class="copy-btn" onclick="copy('curl-cmd')">cp</button></div>
+      <div class="cmd" id="curl-cmd">curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/install.sh | sh<button class="copy-btn" aria-label="Copy curl install command" onclick="copy('curl-cmd')">cp</button></div>
       <p class="alt-label">or</p>
-      <div class="cmd" id="go-cmd">go install github.com/peter-trerotola/go-postgres-mcp/cmd@latest<button class="copy-btn" onclick="copy('go-cmd')">cp</button></div>
+      <div class="cmd" id="go-cmd">go install github.com/peter-trerotola/go-postgres-mcp/cmd@latest<button class="copy-btn" aria-label="Copy go install command" onclick="copy('go-cmd')">cp</button></div>
       <p class="alt-label">or</p>
-      <div class="cmd" id="docker-cmd">docker pull ghcr.io/peter-trerotola/go-postgres-mcp:latest<button class="copy-btn" onclick="copy('docker-cmd')">cp</button></div>
+      <div class="cmd" id="docker-cmd">docker pull ghcr.io/peter-trerotola/go-postgres-mcp:latest<button class="copy-btn" aria-label="Copy docker pull command" onclick="copy('docker-cmd')">cp</button></div>
       <p class="platform-note">linux/darwin &middot; amd64/arm64</p>
     </div>
 
@@ -236,14 +242,14 @@
 
     <div class="links">
       <a href="https://github.com/peter-trerotola/go-postgres-mcp">github</a>
-      <span>|</span>
+      <span aria-hidden="true">|</span>
       <a href="https://github.com/peter-trerotola/go-postgres-mcp/releases">releases</a>
-      <span>|</span>
+      <span aria-hidden="true">|</span>
       <a href="https://github.com/peter-trerotola/go-postgres-mcp#configuration">docs</a>
-      <span>|</span>
+      <span aria-hidden="true">|</span>
       <a href="https://github.com/peter-trerotola/go-postgres-mcp/issues">issues</a>
-      <span>&nbsp;</span>
-      <span class="cursor"></span>
+      <span aria-hidden="true">&nbsp;</span>
+      <span class="cursor" aria-hidden="true"></span>
     </div>
   </div>
 
@@ -254,9 +260,12 @@
       const clone = el.cloneNode(true);
       const cloneBtn = clone.querySelector('.copy-btn');
       if (cloneBtn) cloneBtn.remove();
-      const text = clone.textContent.replace(/^> /, '').trim();
+      const text = clone.textContent.trim();
       navigator.clipboard.writeText(text).then(() => {
         btn.textContent = 'ok';
+        setTimeout(() => btn.textContent = 'cp', 1500);
+      }).catch(() => {
+        btn.textContent = '!!';
         setTimeout(() => btn.textContent = 'cp', 1500);
       });
     }
