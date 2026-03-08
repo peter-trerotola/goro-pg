@@ -7,6 +7,9 @@ on:
     branches: [master, main]
   workflow_dispatch:
 
+permissions:
+  statuses: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,6 +25,22 @@ jobs:
 
       - name: Run tests
         run: CGO_ENABLED=1 go test ./... -v -race
+
+      - name: Report status to PR
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATE="success"
+          if [ "$JOB_STATUS" != "success" ]; then STATE="failure"; fi
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context="test" \
+            -f description="CI test ($JOB_STATUS)" \
+            -f target_url="$RUN_URL"
 
   build-linux:
     runs-on: ubuntu-latest
@@ -47,6 +66,22 @@ jobs:
       - name: Build Docker image
         run: docker build -t go-postgres-mcp .
 
+      - name: Report status to PR
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATE="success"
+          if [ "$JOB_STATUS" != "success" ]; then STATE="failure"; fi
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context="build-linux" \
+            -f description="CI build-linux ($JOB_STATUS)" \
+            -f target_url="$RUN_URL"
+
   # Uses macos-14 (Xcode 16.2, macOS 15.2 SDK) because pg_query_go's
   # bundled C code conflicts with macOS 15.4+ SDK headers.
   build-darwin:
@@ -66,3 +101,19 @@ jobs:
         with:
           version: "~> v2"
           args: build --snapshot --clean --id darwin-amd64 --id darwin-arm64
+
+      - name: Report status to PR
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATE="success"
+          if [ "$JOB_STATUS" != "success" ]; then STATE="failure"; fi
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context="build-darwin" \
+            -f description="CI build-darwin ($JOB_STATUS)" \
+            -f target_url="$RUN_URL"
