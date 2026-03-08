@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.5.2...v1.5.3) (2026-03-08)
+
+
+### Performance Improvements
+
+* parallelize Docker build in CI ([#50](https://github.com/peter-trerotola/go-postgres-mcp/issues/50)) ([c4bf76e](https://github.com/peter-trerotola/go-postgres-mcp/commit/c4bf76e33e3b535bccd040796a8b07801af091ff))
+
 ## [1.5.2](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.5.1...v1.5.2) (2026-03-08)
 
 
