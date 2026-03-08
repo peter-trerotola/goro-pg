@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.7.0...v1.8.0) (2026-03-08)
+
+
+### Features
+
+* add sample configs to GitHub Pages site ([#61](https://github.com/peter-trerotola/go-postgres-mcp/issues/61)) ([8e37fbc](https://github.com/peter-trerotola/go-postgres-mcp/commit/8e37fbc8aaa9225c2d986df3902c8e3b61b403a4))
+
 ## [1.7.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.6.2...v1.7.0) (2026-03-08)
 
 
