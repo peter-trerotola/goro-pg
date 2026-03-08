@@ -95,6 +95,19 @@ escape_single_quotes() {
 # --- start ---
 
 printf '\n' >&2
+printf "${BLUE}" >&2
+cat >&2 <<'BANNER'
+        .--.          _===_
+       ( o o )       ||MCP||
+       | .--.|======>||___||
+       |( __ )       |/   \|
+       /'----'\
+      / /|  |\ \
+     (_/ |  | \_)
+         '--'
+BANNER
+printf "${RST}" >&2
+printf '\n' >&2
 ohai "go-postgres-mcp setup"
 printf '\n' >&2
 

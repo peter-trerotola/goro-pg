@@ -72,6 +72,19 @@ BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 # --- install ---
 
 printf '\n' >&2
+printf "${BLUE}" >&2
+cat >&2 <<'BANNER'
+        .--.          _===_
+       ( o o )       ||MCP||
+       | .--.|======>||___||
+       |( __ )       |/   \|
+       /'----'\
+      / /|  |\ \
+     (_/ |  | \_)
+         '--'
+BANNER
+printf "${RST}" >&2
+printf '\n' >&2
 ohai "Installing ${BINARY} ${VERSION}"
 info "${BOLD}platform${RST}:  ${GREEN}${OS}/${ARCH}${RST}"
 info "${BOLD}install${RST}:   ${GREEN}${INSTALL_DIR}${RST}"
