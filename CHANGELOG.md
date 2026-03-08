@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.6.2...v1.7.0) (2026-03-08)
+
+
+### Features
+
+* redesign site with terminal/brutalist aesthetic ([#58](https://github.com/peter-trerotola/go-postgres-mcp/issues/58)) ([db314d6](https://github.com/peter-trerotola/go-postgres-mcp/commit/db314d6827ea878c955241c88f2c98ab0354f8cd))
+
 ## [1.6.2](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.6.1...v1.6.2) (2026-03-08)
 
 
