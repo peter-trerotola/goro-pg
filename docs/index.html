@@ -284,17 +284,28 @@
 
     <div class="section">
       <div class="section-label">config</div>
-      <div class="config-tabs">
-        <button class="config-tab active" onclick="showTab('setup')" aria-label="Show interactive setup">setup</button>
-        <button class="config-tab" onclick="showTab('minimal')" aria-label="Show minimal config">minimal</button>
-        <button class="config-tab" onclick="showTab('scoped')" aria-label="Show scoped config">scoped</button>
+      <div class="config-tabs" role="tablist">
+        <button class="config-tab active" role="tab" aria-selected="true" aria-controls="tab-setup" onclick="showTab('setup', this)">setup</button>
+        <button class="config-tab" role="tab" aria-selected="false" aria-controls="tab-minimal" onclick="showTab('minimal', this)">minimal</button>
+        <button class="config-tab" role="tab" aria-selected="false" aria-controls="tab-scoped" onclick="showTab('scoped', this)">scoped</button>
       </div>
-      <div class="config-block" id="tab-setup">
+      <div class="config-block" id="tab-setup" role="tabpanel">
         <pre><code><span class="c"># interactive setup — prompts for connection details, generates config.yaml</span></code></pre>
-        <div class="cmd" id="setup-cmd" style="margin-top: 8px">curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/setup.sh | sh<button class="copy-btn" aria-label="Copy setup command" onclick="copy('setup-cmd')">cp</button></div>
+        <div class="cmd" id="setup-cmd" style="margin-top: 8px">curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/setup.sh | sh<button class="copy-btn" aria-label="Copy setup command" onclick="copyText('curl -sfL https://peter-trerotola.github.io/go-postgres-mcp/setup.sh | sh', this)">cp</button></div>
       </div>
-      <div class="config-block hidden" id="tab-minimal">
-        <button class="copy-btn" aria-label="Copy minimal config" onclick="copyConfig('tab-minimal')">cp</button>
+      <div class="config-block hidden" id="tab-minimal" role="tabpanel" data-yaml="# config.yaml — full discovery, all schemas and tables
+databases:
+  - name: &quot;mydb&quot;
+    host: &quot;localhost&quot;
+    port: 5432
+    database: &quot;mydb&quot;
+    user: &quot;readonly_user&quot;
+    password_env: &quot;DB_PASSWORD&quot;
+
+knowledgemap:
+  path: &quot;knowledgemap.db&quot;
+  auto_discover_on_startup: true">
+        <button class="copy-btn" aria-label="Copy minimal config" onclick="copyText(this.parentElement.dataset.yaml, this)">cp</button>
         <pre><code><span class="c"># config.yaml — full discovery, all schemas and tables</span>
 <span class="k">databases</span>:
   - <span class="k">name</span>: <span class="s">"mydb"</span>
@@ -308,8 +319,33 @@
   <span class="k">path</span>: <span class="s">"knowledgemap.db"</span>
   <span class="k">auto_discover_on_startup</span>: <span class="n">true</span></code></pre>
       </div>
-      <div class="config-block hidden" id="tab-scoped">
-        <button class="copy-btn" aria-label="Copy scoped config" onclick="copyConfig('tab-scoped')">cp</button>
+      <div class="config-block hidden" id="tab-scoped" role="tabpanel" data-yaml="# config.yaml — narrow scope: specific schemas and tables only
+databases:
+  - name: &quot;production&quot;
+    host: &quot;db.example.com&quot;
+    port: 5432
+    database: &quot;app_prod&quot;
+    user: &quot;mcp_reader&quot;
+    password_env: &quot;PROD_DB_PASSWORD&quot;
+    sslmode: &quot;require&quot;
+
+    # only discover these schemas
+    schemas:
+      - &quot;public&quot;
+      - &quot;billing&quot;
+
+    # only discover these tables
+    tables:
+      include:
+        - &quot;public.users&quot;
+        - &quot;public.orders&quot;
+        - &quot;billing.invoices&quot;
+        - &quot;billing.line_items&quot;
+
+knowledgemap:
+  path: &quot;/data/knowledgemap.db&quot;
+  auto_discover_on_startup: true">
+        <button class="copy-btn" aria-label="Copy scoped config" onclick="copyText(this.parentElement.dataset.yaml, this)">cp</button>
         <pre><code><span class="c"># config.yaml — narrow scope: specific schemas and tables only</span>
 <span class="k">databases</span>:
   - <span class="k">name</span>: <span class="s">"production"</span>
@@ -375,18 +411,18 @@
   </div>
 
   <script>
-    function showTab(name) {
+    function showTab(name, btn) {
       document.querySelectorAll('.config-block').forEach(el => el.classList.add('hidden'));
-      document.querySelectorAll('.config-tab').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.config-tab').forEach(el => {
+        el.classList.remove('active');
+        el.setAttribute('aria-selected', 'false');
+      });
       document.getElementById('tab-' + name).classList.remove('hidden');
-      event.target.classList.add('active');
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
     }
 
-    function copyConfig(id) {
-      const el = document.getElementById(id);
-      const btn = el.querySelector('.copy-btn');
-      const code = el.querySelector('code');
-      const text = code.textContent.trim();
+    function copyText(text, btn) {
       navigator.clipboard.writeText(text).then(() => {
         btn.textContent = 'ok';
         setTimeout(() => btn.textContent = 'cp', 1500);
@@ -402,14 +438,7 @@
       const clone = el.cloneNode(true);
       const cloneBtn = clone.querySelector('.copy-btn');
       if (cloneBtn) cloneBtn.remove();
-      const text = clone.textContent.trim();
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'ok';
-        setTimeout(() => btn.textContent = 'cp', 1500);
-      }).catch(() => {
-        btn.textContent = '!!';
-        setTimeout(() => btn.textContent = 'cp', 1500);
-      });
+      copyText(clone.textContent.trim(), btn);
     }
   </script>
 </body>
