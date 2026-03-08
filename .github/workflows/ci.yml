@@ -7,6 +7,10 @@ on:
     branches: [master, main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  statuses: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -66,3 +70,34 @@ jobs:
         with:
           version: "~> v2"
           args: build --snapshot --clean --id darwin-amd64 --id darwin-arm64
+
+  # Reports job results as commit statuses when CI is triggered via
+  # workflow_dispatch (e.g., for release-please PRs). This is needed because
+  # workflow_dispatch runs don't create check runs linked to PR check suites.
+  report-status:
+    runs-on: ubuntu-latest
+    needs: [test, build-linux, build-darwin]
+    if: always() && github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Report job statuses to commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TEST_RESULT: ${{ needs.test.result }}
+          BUILD_LINUX_RESULT: ${{ needs.build-linux.result }}
+          BUILD_DARWIN_RESULT: ${{ needs.build-darwin.result }}
+        run: |
+          report_status() {
+            local context="$1" result="$2"
+            local state="failure"
+            if [ "$result" = "success" ]; then state="success"; fi
+            gh api "repos/${{ github.repository }}/statuses/$SHA" \
+              -f state="$state" \
+              -f context="$context" \
+              -f description="CI $context ($result)" \
+              -f target_url="$RUN_URL"
+          }
+          report_status "test" "$TEST_RESULT"
+          report_status "build-linux" "$BUILD_LINUX_RESULT"
+          report_status "build-darwin" "$BUILD_DARWIN_RESULT"
