@@ -8,21 +8,22 @@ set -e
 
 CONFIG_FILE="${CONFIG_FILE:-config.yaml}"
 
+# Read from /dev/tty so prompts work when piped through curl | sh
 prompt() {
   printf '%s' "$1" >&2
-  read -r val
+  read -r val </dev/tty
   echo "$val"
 }
 
 prompt_default() {
   printf '%s [%s] ' "$1" "$2" >&2
-  read -r val
+  read -r val </dev/tty
   if [ -z "$val" ]; then echo "$2"; else echo "$val"; fi
 }
 
 prompt_yn() {
   printf '%s [y/n] ' "$1" >&2
-  read -r val
+  read -r val </dev/tty
   case "$val" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
 }
 
