@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.10.0...v1.11.0) (2026-03-08)
+
+
+### Features
+
+* improve setup script config path, password flow, and Claude Code integration ([#69](https://github.com/peter-trerotola/go-postgres-mcp/issues/69)) ([6207e4d](https://github.com/peter-trerotola/go-postgres-mcp/commit/6207e4db4e7c7f0e11e94f27927f01c33cc2089d))
+
 ## [1.10.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.9.0...v1.10.0) (2026-03-08)
 
 
