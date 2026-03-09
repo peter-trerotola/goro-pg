@@ -436,7 +436,7 @@ if command -v claude >/dev/null 2>&1; then
     fi
 
     info "the server reads ${BOLD}${DB_PASSWORD_ENV}${RST} from your shell environment"
-    info "running: ${DIM}claude mcp add ${MCP_NAME} -- ${MCP_BIN} --config ...${RST}"
+    info "running: ${DIM}claude mcp add ${MCP_NAME} -t stdio -- ${MCP_BIN} --config ...${RST}"
     if claude mcp add "$MCP_NAME" -t stdio \
       -- "$MCP_BIN" --config "$CONFIG_FILE"; then
       ok "added ${BOLD}${MCP_NAME}${RST} to Claude Code"
@@ -444,7 +444,7 @@ if command -v claude >/dev/null 2>&1; then
     else
       warn "could not add MCP server automatically"
       info "add it manually:"
-      info "  ${BOLD}claude mcp add ${MCP_NAME} -- ${MCP_BIN} --config ${CONFIG_FILE}${RST}"
+      info "  ${BOLD}claude mcp add ${MCP_NAME} -t stdio -- ${MCP_BIN} --config ${CONFIG_FILE}${RST}"
     fi
     printf '\n' >&2
   fi
