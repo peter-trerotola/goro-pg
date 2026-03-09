@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.11.1...v1.12.0) (2026-03-09)
+
+
+### Features
+
+* swap gopher/elephant positions and simplify question ([#73](https://github.com/peter-trerotola/go-postgres-mcp/issues/73)) ([1bb00fc](https://github.com/peter-trerotola/go-postgres-mcp/commit/1bb00fc5d477aa4443e3f2b3cbeaf454f2c418cc))
+
 ## [1.11.1](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.11.0...v1.11.1) (2026-03-08)
 
 
