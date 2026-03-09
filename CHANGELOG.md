@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.12.0...v1.12.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* simplify claude mcp add — let server read env vars directly ([#75](https://github.com/peter-trerotola/go-postgres-mcp/issues/75)) ([ccedb64](https://github.com/peter-trerotola/go-postgres-mcp/commit/ccedb64d82a4e2f1b2d7143a92468b475b55dbcb))
+
 ## [1.12.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.11.1...v1.12.0) (2026-03-09)
 
 
