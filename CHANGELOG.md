@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.16.1...v1.16.2) (2026-03-09)
+
+
+### Bug Fixes
+
+* prevent permission denied on schemas without USAGE privilege ([#89](https://github.com/peter-trerotola/go-postgres-mcp/issues/89)) ([2dbc9ff](https://github.com/peter-trerotola/go-postgres-mcp/commit/2dbc9fffc60267a338779a46894d54c2e57a5bba))
+
 ## [1.16.1](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.16.0...v1.16.1) (2026-03-09)
 
 
