@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -48,16 +49,7 @@ func New(cfg *config.Config) (*App, error) {
 	mcpSrv := mcpserver.NewMCPServer(
 		"go-postgres-mcp",
 		"1.0.0",
-		mcpserver.WithInstructions(`This server provides read-only access to PostgreSQL databases.
-
-Workflow:
-1. Use list_databases to see available databases.
-2. Use list_tables or describe_table to understand schema BEFORE writing queries.
-3. Use query to execute read-only SELECT statements.
-
-Query results include a schema_context field with column names and types for all referenced tables. Use this to verify column names in follow-up queries.
-
-If a query fails with a column or table error, check the schema hint in the error message for correct names.`),
+		mcpserver.WithInstructions(baseInstructions),
 		mcpserver.WithResourceCapabilities(false, true),
 		mcpserver.WithLogging(),
 		mcpserver.WithHooks(hooks),
@@ -80,6 +72,9 @@ func (a *App) Start(ctx context.Context) error {
 		}
 		log.Printf("connected to database %q", dbCfg.Name)
 	}
+	// Always refresh instructions — even without auto-discovery, the knowledge
+	// map may contain previously-discovered schema from a prior run.
+	a.refreshInstructions()
 	return nil
 }
 
@@ -122,6 +117,9 @@ func (a *App) runAutoDiscovery(ctx context.Context) {
 		}(pool, dbCfg)
 	}
 	wg.Wait()
+
+	// Refresh instructions with newly discovered schema
+	a.refreshInstructions()
 
 	// Report summary using actual discovered counts from the knowledge map
 	tableCount, err := a.store.CountTables()
@@ -171,4 +169,96 @@ func (a *App) Shutdown() {
 // MCPServer returns the underlying MCP server for testing.
 func (a *App) MCPServer() *mcpserver.MCPServer {
 	return a.mcpServer
+}
+
+// baseInstructions is the static portion of the MCP server instructions.
+const baseInstructions = `This server provides read-only access to PostgreSQL databases.
+
+Workflow:
+1. Use list_databases to see available databases.
+2. Review the schema summary included in these instructions (under "Schema:") to understand available schemas, tables, and columns before writing queries. Prefer using this upfront schema information rather than calling schema tools for every query.
+3. Use query to execute read-only SELECT statements.
+
+Query results include a schema_context field with column names and types for all referenced tables. Use this to verify column names in follow-up queries.
+
+If the schema summary appears incomplete, you suspect the schema has changed, or you need more detailed information about a specific table, you MAY call list_tables or describe_table to fetch fresh schema details. If a query fails with a column or table error, check the schema hint in the error message and the schema summary (or these tools, if needed) for the correct names.`
+
+// refreshInstructions rebuilds the MCP server instructions with a compact
+// schema summary from the knowledge map. This gives the LLM upfront knowledge
+// of every table and column without requiring extra tool calls.
+func (a *App) refreshInstructions() {
+	summary := a.buildSchemaSummary()
+	instructions := baseInstructions
+	if summary != "" {
+		instructions += "\n\n" + summary
+	}
+	// Apply the WithInstructions option to update the unexported field.
+	mcpserver.WithInstructions(instructions)(a.mcpServer)
+	log.Printf("server instructions refreshed (%d bytes)", len(instructions))
+}
+
+// maxSchemaSummaryBytes is the maximum size of the schema summary appended to
+// server instructions. Large databases can produce summaries that exceed LLM
+// context limits or slow down transport; this cap ensures a predictable ceiling.
+const maxSchemaSummaryBytes = 50_000
+
+// buildSchemaSummary generates a compact text summary of all discovered schemas,
+// tables, and columns from the knowledge map. Format:
+//
+//	Schema:
+//	[dbname] schema.table: col1 (type), col2 (type), ...
+//
+// The summary is truncated at maxSchemaSummaryBytes with a notice appended.
+func (a *App) buildSchemaSummary() string {
+	dbs, err := a.store.ListDatabases()
+	if err != nil || len(dbs) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Schema:")
+	truncated := false
+
+	for _, db := range dbs {
+		if truncated {
+			break
+		}
+		schemas, err := a.store.ListSchemas(db.Name)
+		if err != nil {
+			continue
+		}
+		for _, schema := range schemas {
+			if truncated {
+				break
+			}
+			tables, err := a.store.ListTables(db.Name, schema.SchemaName)
+			if err != nil {
+				continue
+			}
+			for _, table := range tables {
+				cols, err := a.store.ListColumnsCompact(db.Name, schema.SchemaName, table.TableName)
+				if err != nil {
+					continue
+				}
+				parts := make([]string, len(cols))
+				for i, c := range cols {
+					parts[i] = c.Column + " (" + c.Type + ")"
+				}
+				line := "\n[" + db.Name + "] " + schema.SchemaName + "." + table.TableName + ": " + strings.Join(parts, ", ")
+				if b.Len()+len(line) > maxSchemaSummaryBytes {
+					truncated = true
+					break
+				}
+				b.WriteString(line)
+			}
+		}
+	}
+
+	if b.Len() <= len("Schema:") {
+		return ""
+	}
+	if truncated {
+		b.WriteString("\n... (truncated — use describe_table for full details)")
+	}
+	return b.String()
 }

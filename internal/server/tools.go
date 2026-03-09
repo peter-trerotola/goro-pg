@@ -264,6 +264,7 @@ func (a *App) handleDiscover(ctx context.Context, request mcp.CallToolRequest) (
 		}
 		a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("ready — %d tables across %d databases", tableCount, dbCount))
 	}
+	a.refreshInstructions()
 
 	return mcp.NewToolResultText(fmt.Sprintf("Successfully discovered schema for database %q", dbName)), nil
 }
