@@ -184,7 +184,7 @@ databases:
 
 Schema and table filters can be combined — schema filtering is applied first, then table filtering within those schemas.
 
-> **Note:** These filters control what the knowledge map tools (`list_tables`, `describe_table`, `search_schema`, etc.) can see. The `query` tool executes live SQL and can still access any table the database user has SELECT privileges on. Use PostgreSQL grants (Tier 4) to restrict live query access.
+> **Note:** These filters are enforced at both discovery time (what enters the knowledge map) and query time (the `query` tool extracts table references from SQL via AST parsing and rejects queries that reference filtered-out schemas or tables). For defense-in-depth, also configure PostgreSQL grants (Tier 4) to restrict access at the database level.
 
 ### Creating a read-only PostgreSQL user (Tier 4)
 

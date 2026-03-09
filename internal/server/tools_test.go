@@ -9,6 +9,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
+	"github.com/peter-trerotola/go-postgres-mcp/internal/config"
 	"github.com/peter-trerotola/go-postgres-mcp/internal/knowledgemap"
 	"github.com/peter-trerotola/go-postgres-mcp/internal/postgres"
 )
@@ -329,5 +330,98 @@ func TestQueryResult_SchemaContextOmittedWhenNil(t *testing.T) {
 	// SchemaContext should be omitted (omitempty)
 	if strings.Contains(data.Content[0].(mcp.TextContent).Text, "schema_context") {
 		t.Error("expected schema_context to be omitted when nil")
+	}
+}
+
+func newTestAppWithConfig(t *testing.T, databases []config.DatabaseConfig) *App {
+	t.Helper()
+	app := newTestApp(t)
+	app.cfg = &config.Config{Databases: databases}
+	return app
+}
+
+func TestCheckTableFilter_SchemaFilterIntegration(t *testing.T) {
+	app := newTestAppWithConfig(t, []config.DatabaseConfig{
+		{Name: "testdb", Schemas: []string{"public"}},
+	})
+
+	// Allowed: public schema
+	if err := app.checkTableFilter("testdb", "SELECT * FROM public.users"); err != nil {
+		t.Errorf("expected allowed, got: %v", err)
+	}
+
+	// Blocked: secret schema
+	if err := app.checkTableFilter("testdb", "SELECT * FROM secret.data"); err == nil {
+		t.Error("expected blocked for secret schema")
+	}
+}
+
+func TestCheckTableFilter_TableIncludeIntegration(t *testing.T) {
+	app := newTestAppWithConfig(t, []config.DatabaseConfig{
+		{Name: "testdb", Tables: config.TableFilter{Include: []string{"public.users", "public.orders"}}},
+	})
+
+	// Allowed: included table
+	if err := app.checkTableFilter("testdb", "SELECT * FROM users"); err != nil {
+		t.Errorf("expected allowed, got: %v", err)
+	}
+
+	// Allowed: join of included tables
+	if err := app.checkTableFilter("testdb", "SELECT * FROM users JOIN orders ON users.id = orders.user_id"); err != nil {
+		t.Errorf("expected allowed, got: %v", err)
+	}
+
+	// Blocked: not included
+	if err := app.checkTableFilter("testdb", "SELECT * FROM secrets"); err == nil {
+		t.Error("expected blocked for non-included table")
+	}
+
+	// Blocked: subquery not included
+	if err := app.checkTableFilter("testdb", "SELECT * FROM users WHERE id IN (SELECT user_id FROM secrets)"); err == nil {
+		t.Error("expected blocked for subquery referencing non-included table")
+	}
+}
+
+func TestCheckTableFilter_TableExcludeIntegration(t *testing.T) {
+	app := newTestAppWithConfig(t, []config.DatabaseConfig{
+		{Name: "testdb", Tables: config.TableFilter{Exclude: []string{"public.secrets"}}},
+	})
+
+	// Allowed: non-excluded
+	if err := app.checkTableFilter("testdb", "SELECT * FROM users"); err != nil {
+		t.Errorf("expected allowed, got: %v", err)
+	}
+
+	// Blocked: excluded
+	if err := app.checkTableFilter("testdb", "SELECT * FROM secrets"); err == nil {
+		t.Error("expected blocked for excluded table")
+	}
+}
+
+func TestCheckTableFilter_NoConfigAllowsAll(t *testing.T) {
+	app := newTestAppWithConfig(t, []config.DatabaseConfig{
+		{Name: "testdb"}, // no filters
+	})
+
+	if err := app.checkTableFilter("testdb", "SELECT * FROM anything"); err != nil {
+		t.Errorf("expected allowed with no filters, got: %v", err)
+	}
+}
+
+func TestCheckTableFilter_UnknownDBAllowsAll(t *testing.T) {
+	app := newTestAppWithConfig(t, []config.DatabaseConfig{
+		{Name: "otherdb", Schemas: []string{"public"}},
+	})
+
+	// Unknown database should not enforce filters
+	if err := app.checkTableFilter("testdb", "SELECT * FROM secret.data"); err != nil {
+		t.Errorf("expected allowed for unknown database, got: %v", err)
+	}
+}
+
+func TestCheckTableFilter_NilConfigAllowsAll(t *testing.T) {
+	app := newTestApp(t) // no cfg set
+	if err := app.checkTableFilter("testdb", "SELECT * FROM anything"); err != nil {
+		t.Errorf("expected allowed with nil config, got: %v", err)
 	}
 }

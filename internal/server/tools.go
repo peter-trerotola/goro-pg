@@ -155,6 +155,11 @@ func (a *App) handleQuery(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return errResult, nil
 	}
 
+	// Enforce table filters before executing
+	if err := a.checkTableFilter(dbName, sqlStr); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	result, err := postgres.ReadOnlyQuery(ctx, a.pools, dbName, sqlStr)
 	if err != nil {
 		return mcp.NewToolResultError(a.enrichError(err, dbName, sqlStr)), nil
@@ -369,6 +374,23 @@ func (a *App) handleSearchSchema(ctx context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultText("No results found"), nil
 	}
 	return marshalResult(results)
+}
+
+// checkTableFilter enforces schema/table filters on the SQL before execution.
+// If the database has filters configured, all table references in the SQL are
+// validated against ShouldIncludeSchema and ShouldIncludeTable.
+func (a *App) checkTableFilter(dbName, sql string) error {
+	if a.cfg == nil {
+		return nil
+	}
+	dbCfg, err := a.findDBConfig(dbName)
+	if err != nil {
+		return nil // no config = no filters to enforce
+	}
+
+	return guard.CheckTableFilter(sql, func(schema, table string) bool {
+		return dbCfg.ShouldIncludeSchema(schema) && dbCfg.ShouldIncludeTable(schema, table)
+	})
 }
 
 // findDBConfig returns the config for a named database.

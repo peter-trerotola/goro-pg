@@ -111,19 +111,119 @@ func TestExtractTableRefs_Explain(t *testing.T) {
 
 func TestExtractTableRefs_DuplicateTablesDeduped(t *testing.T) {
 	refs := ExtractTableRefs("SELECT * FROM users WHERE id IN (SELECT user_id FROM users)")
-	// "users" in FROM, and again in subquery WHERE — but WHERE subqueries are not extracted,
-	// so there should be exactly 1 ref. Even if both were extracted, dedup should handle it.
-	for i, ref := range refs {
-		for j, ref2 := range refs {
-			if i != j && ref == ref2 {
-				t.Errorf("duplicate table ref found: %v", ref)
-			}
-		}
-	}
+	// "users" appears in FROM and again in WHERE subquery — dedup should produce exactly 1 ref.
+	assertTableRefs(t, refs, []TableRef{{Schema: "public", Table: "users"}})
 }
 
 func TestExtractTableRefs_MultipleSchemasQualified(t *testing.T) {
 	refs := ExtractTableRefs("SELECT * FROM public.users JOIN audit.logs ON users.id = logs.user_id")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "audit", Table: "logs"},
+	})
+}
+
+// --- Subquery extraction tests ---
+
+func TestExtractTableRefs_WhereIN(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_WhereExists(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_WhereNotExists(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users u WHERE NOT EXISTS (SELECT 1 FROM banned b WHERE b.user_id = u.id)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "banned"},
+	})
+}
+
+func TestExtractTableRefs_WhereScalarSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users WHERE age > (SELECT AVG(age) FROM stats)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "stats"},
+	})
+}
+
+func TestExtractTableRefs_SelectListSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT id, (SELECT count(*) FROM orders WHERE orders.user_id = users.id) AS order_count FROM users")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_HavingSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT user_id, count(*) FROM orders GROUP BY user_id HAVING count(*) > (SELECT avg(cnt) FROM (SELECT count(*) cnt FROM orders GROUP BY user_id) sub)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_NestedSubqueries(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE product_id IN (SELECT id FROM products))")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+		{Schema: "public", Table: "products"},
+	})
+}
+
+func TestExtractTableRefs_WhereAndFromSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM (SELECT id FROM users) sub WHERE sub.id IN (SELECT user_id FROM orders)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_CaseSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT CASE WHEN (SELECT count(*) FROM admins) > 0 THEN 'yes' ELSE 'no' END FROM users")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "admins"},
+	})
+}
+
+func TestExtractTableRefs_CoalesceSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT COALESCE((SELECT name FROM settings WHERE key = 'default'), 'fallback') FROM users")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "settings"},
+	})
+}
+
+func TestExtractTableRefs_FunctionArgSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users WHERE id = ANY(SELECT user_id FROM orders)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+	})
+}
+
+func TestExtractTableRefs_MultipleWhereSubqueries(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders) AND email IN (SELECT email FROM verified)")
+	assertTableRefs(t, refs, []TableRef{
+		{Schema: "public", Table: "users"},
+		{Schema: "public", Table: "orders"},
+		{Schema: "public", Table: "verified"},
+	})
+}
+
+func TestExtractTableRefs_SchemaQualifiedSubquery(t *testing.T) {
+	refs := ExtractTableRefs("SELECT * FROM public.users WHERE id IN (SELECT user_id FROM audit.logs)")
 	assertTableRefs(t, refs, []TableRef{
 		{Schema: "public", Table: "users"},
 		{Schema: "audit", Table: "logs"},
