@@ -435,27 +435,16 @@ if command -v claude >/dev/null 2>&1; then
       MCP_BIN="go-postgres-mcp"
     fi
 
-    # Resolve the password for the env flag
-    MCP_PASSWORD="$DB_PASSWORD"
-    if [ -z "$MCP_PASSWORD" ]; then
-      MCP_PASSWORD=$(eval "echo \"\${$DB_PASSWORD_ENV}\"" 2>/dev/null || true)
-    fi
-
-    if [ -z "$MCP_PASSWORD" ]; then
-      warn "${DB_PASSWORD_ENV} is not set — you'll need to add it manually"
-      info "  ${BOLD}claude mcp add --transport stdio --env ${DB_PASSWORD_ENV}=YOUR_PASSWORD ${MCP_NAME} -- ${MCP_BIN} --config ${CONFIG_FILE}${RST}"
+    info "the server reads ${BOLD}${DB_PASSWORD_ENV}${RST} from your shell environment"
+    info "running: ${DIM}claude mcp add ${MCP_NAME} -- ${MCP_BIN} --config ...${RST}"
+    if claude mcp add "$MCP_NAME" -t stdio \
+      -- "$MCP_BIN" --config "$CONFIG_FILE"; then
+      ok "added ${BOLD}${MCP_NAME}${RST} to Claude Code"
+      info "make sure ${BOLD}${DB_PASSWORD_ENV}${RST} is exported in your shell profile"
     else
-      info "running: ${DIM}claude mcp add ...${RST}"
-      if claude mcp add --transport stdio \
-        --env "${DB_PASSWORD_ENV}=${MCP_PASSWORD}" \
-        "$MCP_NAME" -- "$MCP_BIN" --config "$CONFIG_FILE"; then
-        ok "added ${BOLD}${MCP_NAME}${RST} to Claude Code"
-      else
-        warn "could not add MCP server automatically"
-        info "add it manually:"
-        info "  ${BOLD}claude mcp add --transport stdio --env ${DB_PASSWORD_ENV}=YOUR_PASSWORD ${MCP_NAME} -- ${MCP_BIN} --config ${CONFIG_FILE}${RST}"
-      fi
-      MCP_PASSWORD=""
+      warn "could not add MCP server automatically"
+      info "add it manually:"
+      info "  ${BOLD}claude mcp add ${MCP_NAME} -- ${MCP_BIN} --config ${CONFIG_FILE}${RST}"
     fi
     printf '\n' >&2
   fi
