@@ -271,6 +271,10 @@ func TestCheckTableFilter_CTENames(t *testing.T) {
 		{"allowed_nested cte", "WITH outer_cte AS (WITH inner_cte AS (SELECT * FROM users) SELECT * FROM inner_cte) SELECT * FROM outer_cte", []string{"public.users"}, false},
 		{"blocked_cte body references blocked table", "WITH leaked AS (SELECT * FROM secrets) SELECT * FROM leaked", []string{"public.users"}, true},
 		{"blocked_cte ok but outer references blocked", "WITH ok AS (SELECT * FROM users) SELECT * FROM ok JOIN secrets ON ok.id = secrets.user_id", []string{"public.users"}, true},
+		{"blocked_schema_qualified real table with same cte name", "WITH users AS (SELECT 1) SELECT * FROM public.users", []string{"public.orders"}, true},
+		{"blocked_cte name cannot bypass filter for qualified ref", "WITH secrets AS (SELECT 1) SELECT * FROM public.secrets", []string{"public.users"}, true},
+		{"allowed_cte inside subquery", "SELECT * FROM (WITH cte AS (SELECT * FROM users) SELECT * FROM cte) s", []string{"public.users"}, false},
+		{"allowed_cte inside subquery not treated as table", "SELECT * FROM (WITH inner_cte AS (SELECT id FROM users) SELECT * FROM inner_cte) sub", []string{"public.users"}, false},
 	}
 
 	for _, tc := range cases {
