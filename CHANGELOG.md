@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.12.2...v1.13.0) (2026-03-09)
+
+
+### Features
+
+* enforce schema/table filters at query time ([#79](https://github.com/peter-trerotola/go-postgres-mcp/issues/79)) ([f726733](https://github.com/peter-trerotola/go-postgres-mcp/commit/f726733551ba73e885d6d64ecb23568910623865))
+
 ## [1.12.2](https://github.com/peter-trerotola/go-postgres-mcp/compare/v1.12.1...v1.12.2) (2026-03-09)
 
 
