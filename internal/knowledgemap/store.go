@@ -2,6 +2,8 @@ package knowledgemap
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -16,6 +18,11 @@ type Store struct {
 // Open creates or opens a SQLite database at the given path and initializes
 // the schema. WAL mode and foreign keys are enabled.
 func Open(path string) (*Store, error) {
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return nil, fmt.Errorf("creating knowledge map directory: %w", err)
+		}
+	}
 	db, err := sqlx.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=foreign_keys(on)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite: %w", err)

@@ -23,5 +23,5 @@ databases:
     #     - "public.sessions"
 
 knowledgemap:
-  path: "/data/knowledgemap.db"
+  # path: "~/.config/go-postgres-mcp/knowledgemap.db"  # default; use /data/knowledgemap.db in Docker
   auto_discover_on_startup: true

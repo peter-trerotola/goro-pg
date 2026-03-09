@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -200,8 +201,18 @@ func (c *Config) validate() error {
 	}
 
 	if c.KnowledgeMap.Path == "" {
-		c.KnowledgeMap.Path = "./knowledgemap.db"
+		c.KnowledgeMap.Path = defaultKnowledgeMapPath()
 	}
 
 	return nil
+}
+
+// defaultKnowledgeMapPath returns ~/.config/go-postgres-mcp/knowledgemap.db,
+// falling back to ./knowledgemap.db if the config directory cannot be resolved.
+func defaultKnowledgeMapPath() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "./knowledgemap.db"
+	}
+	return filepath.Join(configDir, "go-postgres-mcp", "knowledgemap.db")
 }

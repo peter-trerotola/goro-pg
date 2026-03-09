@@ -99,8 +99,12 @@ databases:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.KnowledgeMap.Path != "./knowledgemap.db" {
-		t.Errorf("expected default km path, got %q", cfg.KnowledgeMap.Path)
+	// Default should be under user config dir (~/.config/go-postgres-mcp/)
+	if !strings.Contains(cfg.KnowledgeMap.Path, "go-postgres-mcp") {
+		t.Errorf("expected default km path under go-postgres-mcp config dir, got %q", cfg.KnowledgeMap.Path)
+	}
+	if !strings.HasSuffix(cfg.KnowledgeMap.Path, "knowledgemap.db") {
+		t.Errorf("expected default km path to end with knowledgemap.db, got %q", cfg.KnowledgeMap.Path)
 	}
 }
 
