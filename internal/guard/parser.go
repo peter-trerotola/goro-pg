@@ -13,7 +13,8 @@ type TableRef struct {
 }
 
 // ExtractTableRefs parses SQL and returns all table references found in
-// FROM clauses, JOINs, subqueries, CTEs, and UNION branches.
+// FROM clauses, JOINs, subqueries (WHERE, HAVING, SELECT list), CTEs, and
+// UNION branches.
 func ExtractTableRefs(sql string) []TableRef {
 	tree, err := pg_query.Parse(sql)
 	if err != nil {
@@ -68,8 +69,16 @@ func collectFromSelect(sel *pg_query.SelectStmt, seen map[TableRef]struct{}, ref
 		collectFromNode(node, seen, refs)
 	}
 
-	// WHERE subqueries are handled via target list / where clause nodes
-	// but we only extract FROM-clause table refs per the plan
+	// WHERE clause subqueries
+	walkNodeForSubqueries(sel.WhereClause, seen, refs)
+
+	// HAVING clause subqueries
+	walkNodeForSubqueries(sel.HavingClause, seen, refs)
+
+	// SELECT list subqueries
+	for _, target := range sel.TargetList {
+		walkNodeForSubqueries(target, seen, refs)
+	}
 
 	// UNION/INTERSECT/EXCEPT branches
 	collectFromSelect(sel.Larg, seen, refs)
@@ -112,6 +121,167 @@ func collectFromNode(node *pg_query.Node, seen map[TableRef]struct{}, refs *[]Ta
 			}
 		}
 	}
+}
+
+// walkNodeForSubqueries recursively walks an expression node tree looking for
+// SubLink nodes (subqueries in WHERE, HAVING, SELECT list, etc.) and extracts
+// table references from their contained SELECT statements.
+func walkNodeForSubqueries(node *pg_query.Node, seen map[TableRef]struct{}, refs *[]TableRef) {
+	if node == nil {
+		return
+	}
+
+	switch n := node.Node.(type) {
+	case *pg_query.Node_SubLink:
+		if n.SubLink != nil && n.SubLink.Subselect != nil {
+			if sel, ok := n.SubLink.Subselect.Node.(*pg_query.Node_SelectStmt); ok {
+				collectFromSelect(sel.SelectStmt, seen, refs)
+			}
+		}
+		// Also walk the test expression (left side of IN, ANY, etc.)
+		if n.SubLink != nil {
+			walkNodeForSubqueries(n.SubLink.Testexpr, seen, refs)
+		}
+
+	case *pg_query.Node_BoolExpr:
+		if n.BoolExpr != nil {
+			for _, arg := range n.BoolExpr.Args {
+				walkNodeForSubqueries(arg, seen, refs)
+			}
+		}
+
+	case *pg_query.Node_AExpr:
+		if n.AExpr != nil {
+			walkNodeForSubqueries(n.AExpr.Lexpr, seen, refs)
+			walkNodeForSubqueries(n.AExpr.Rexpr, seen, refs)
+		}
+
+	case *pg_query.Node_FuncCall:
+		if n.FuncCall != nil {
+			for _, arg := range n.FuncCall.Args {
+				walkNodeForSubqueries(arg, seen, refs)
+			}
+		}
+
+	case *pg_query.Node_CaseExpr:
+		if n.CaseExpr != nil {
+			walkNodeForSubqueries(n.CaseExpr.Arg, seen, refs)
+			for _, w := range n.CaseExpr.Args {
+				walkNodeForSubqueries(w, seen, refs)
+			}
+			walkNodeForSubqueries(n.CaseExpr.Defresult, seen, refs)
+		}
+
+	case *pg_query.Node_CaseWhen:
+		if n.CaseWhen != nil {
+			walkNodeForSubqueries(n.CaseWhen.Expr, seen, refs)
+			walkNodeForSubqueries(n.CaseWhen.Result, seen, refs)
+		}
+
+	case *pg_query.Node_CoalesceExpr:
+		if n.CoalesceExpr != nil {
+			for _, arg := range n.CoalesceExpr.Args {
+				walkNodeForSubqueries(arg, seen, refs)
+			}
+		}
+
+	case *pg_query.Node_ResTarget:
+		if n.ResTarget != nil {
+			walkNodeForSubqueries(n.ResTarget.Val, seen, refs)
+		}
+
+	case *pg_query.Node_TypeCast:
+		if n.TypeCast != nil {
+			walkNodeForSubqueries(n.TypeCast.Arg, seen, refs)
+		}
+
+	case *pg_query.Node_NullTest:
+		if n.NullTest != nil {
+			walkNodeForSubqueries(n.NullTest.Arg, seen, refs)
+		}
+
+	case *pg_query.Node_BooleanTest:
+		if n.BooleanTest != nil {
+			walkNodeForSubqueries(n.BooleanTest.Arg, seen, refs)
+		}
+
+	case *pg_query.Node_RowExpr:
+		if n.RowExpr != nil {
+			for _, arg := range n.RowExpr.Args {
+				walkNodeForSubqueries(arg, seen, refs)
+			}
+		}
+	}
+}
+
+// CheckTableFilter parses the SQL, extracts all table references, and validates
+// each against the provided filter function. CTE names are excluded from checking
+// since they are query-local aliases, not real tables. Returns a ForbiddenError
+// if any referenced table is not allowed by the filter.
+func CheckTableFilter(sql string, allowed func(schema, table string) bool) error {
+	tree, err := pg_query.Parse(sql)
+	if err != nil {
+		return nil // parse errors are handled by Validate()
+	}
+
+	var refs []TableRef
+	seen := make(map[TableRef]struct{})
+	cteNames := make(map[string]struct{})
+
+	for _, stmt := range tree.Stmts {
+		if stmt.Stmt == nil {
+			continue
+		}
+		switch s := stmt.Stmt.Node.(type) {
+		case *pg_query.Node_SelectStmt:
+			collectCTENames(s.SelectStmt, cteNames)
+			collectFromSelect(s.SelectStmt, seen, &refs)
+		case *pg_query.Node_ExplainStmt:
+			if s.ExplainStmt.Query != nil {
+				if inner, ok := s.ExplainStmt.Query.Node.(*pg_query.Node_SelectStmt); ok {
+					collectCTENames(inner.SelectStmt, cteNames)
+					collectFromSelect(inner.SelectStmt, seen, &refs)
+				}
+			}
+		}
+	}
+
+	for _, ref := range refs {
+		// Skip CTE names — they appear as table refs but are query-local aliases
+		if _, isCTE := cteNames[ref.Table]; isCTE && ref.Schema == "public" {
+			continue
+		}
+		if !allowed(ref.Schema, ref.Table) {
+			return &ForbiddenError{Reason: fmt.Sprintf("query references restricted table %q", ref.Schema+"."+ref.Table)}
+		}
+	}
+
+	return nil
+}
+
+// collectCTENames collects the names of all CTEs defined in a SELECT statement.
+func collectCTENames(sel *pg_query.SelectStmt, names map[string]struct{}) {
+	if sel == nil {
+		return
+	}
+	if sel.WithClause != nil {
+		for _, cte := range sel.WithClause.Ctes {
+			if cte == nil {
+				continue
+			}
+			if cteExpr, ok := cte.Node.(*pg_query.Node_CommonTableExpr); ok && cteExpr.CommonTableExpr != nil {
+				names[cteExpr.CommonTableExpr.Ctename] = struct{}{}
+				// Also collect from nested CTEs inside the CTE body
+				if inner := cteExpr.CommonTableExpr.Ctequery; inner != nil {
+					if innerSel, ok := inner.Node.(*pg_query.Node_SelectStmt); ok {
+						collectCTENames(innerSel.SelectStmt, names)
+					}
+				}
+			}
+		}
+	}
+	collectCTENames(sel.Larg, names)
+	collectCTENames(sel.Rarg, names)
 }
 
 // CheckAST parses the SQL using PostgreSQL's actual parser and validates
