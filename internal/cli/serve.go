@@ -36,19 +36,18 @@ func newServeCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("creating server: %w", err)
 			}
+			defer app.Shutdown()
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
 			if err := app.Start(ctx); err != nil {
-				app.Shutdown()
 				return fmt.Errorf("starting server: %w", err)
 			}
 
 			go func() {
 				<-ctx.Done()
 				log.Println("shutting down...")
-				app.Shutdown()
 			}()
 
 			log.Println("MCP server started, listening on stdio")

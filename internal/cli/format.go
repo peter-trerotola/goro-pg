@@ -94,8 +94,10 @@ func formatOutput(w io.Writer, format string, headers []string, rows [][]string,
 	case FormatPlain:
 		writePlain(w, rows)
 		return nil
-	default: // table
+	case FormatTable:
 		writeTable(w, headers, rows)
 		return nil
+	default:
+		return fmt.Errorf("unknown output format %q (valid: table, json, csv, plain)", format)
 	}
 }

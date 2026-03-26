@@ -66,7 +66,10 @@ func renderQueryResult(cmd *cobra.Command, result *postgres.QueryResult) error {
 		return writeJSON(w, result)
 	}
 
-	headers, rows := queryResultToRows(result)
+	headers, rows, err := queryResultToRows(result)
+	if err != nil {
+		return err
+	}
 	if err := formatOutput(w, format, headers, rows, result); err != nil {
 		return err
 	}
@@ -82,13 +85,13 @@ func renderQueryResult(cmd *cobra.Command, result *postgres.QueryResult) error {
 }
 
 // queryResultToRows converts dynamic query result rows into string slices.
-func queryResultToRows(result *postgres.QueryResult) ([]string, [][]string) {
+func queryResultToRows(result *postgres.QueryResult) ([]string, [][]string, error) {
 	headers := result.Columns
 	rows := make([][]string, 0, len(result.Rows))
 	for _, raw := range result.Rows {
 		var rowMap map[string]any
 		if err := json.Unmarshal(raw, &rowMap); err != nil {
-			continue
+			return nil, nil, fmt.Errorf("decoding query result row: %w", err)
 		}
 		row := make([]string, len(headers))
 		for i, col := range headers {
@@ -98,5 +101,5 @@ func queryResultToRows(result *postgres.QueryResult) ([]string, [][]string) {
 		}
 		rows = append(rows, row)
 	}
-	return headers, rows
+	return headers, rows, nil
 }

@@ -101,6 +101,17 @@ func TestFormatOutput_Table(t *testing.T) {
 	}
 }
 
+func TestFormatOutput_UnknownFormat(t *testing.T) {
+	var buf bytes.Buffer
+	err := formatOutput(&buf, "jsno", []string{"x"}, [][]string{{"1"}}, nil)
+	if err == nil {
+		t.Fatal("expected error for unknown format")
+	}
+	if !strings.Contains(err.Error(), "unknown output format") {
+		t.Errorf("expected descriptive error, got: %v", err)
+	}
+}
+
 func TestDefaultFormat_NonTTY(t *testing.T) {
 	// In tests, stdout is typically not a TTY
 	f := defaultFormat()
