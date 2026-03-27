@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/peter-trerotola/goro-pg/internal/postgres"
 )
 
 func (a *App) registerTools() {
@@ -173,47 +172,25 @@ func (a *App) handleDiscover(ctx context.Context, request mcp.CallToolRequest) (
 			a.sendLog(mcp.LoggingLevelWarning, fmt.Sprintf("schema discovery failed for %s: %v", s, err))
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("ready — %d tables discovered", dr.TablesFound))
+		a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("ready — %d tables discovered for %s", dr.TablesFound, s))
 		a.refreshInstructions()
 		return mcp.NewToolResultText(fmt.Sprintf("Successfully discovered schema for database %q", s)), nil
 	}
 
-	// Discover all databases
-	var failed []string
-	for _, dbCfg := range a.engine.Cfg.Databases {
-		pool, err := a.engine.Pools.Get(dbCfg.Name)
-		if err != nil {
-			failed = append(failed, fmt.Sprintf("%s: %v", dbCfg.Name, err))
-			continue
-		}
-		a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("discovering schema for %s...", dbCfg.Name))
-		if err := postgres.Discover(ctx, pool, dbCfg, a.engine.Store); err != nil {
-			a.sendLog(mcp.LoggingLevelWarning, fmt.Sprintf("schema discovery failed for %s: %v", dbCfg.Name, err))
-			failed = append(failed, fmt.Sprintf("%s: %v", dbCfg.Name, err))
-		}
-	}
+	// Discover all databases via engine
+	dr := a.engine.DiscoverAll(ctx)
 
-	tableCount, err := a.engine.Store.CountTables()
-	if err != nil {
-		a.sendLog(mcp.LoggingLevelWarning, "schema discovery complete but failed to count tables")
+	if len(dr.Failures) > 0 {
+		a.sendLog(mcp.LoggingLevelWarning, fmt.Sprintf("partial discovery — %d tables across %d databases (%d failed)", dr.TablesFound, dr.DatabasesDiscovered, len(dr.Failures)))
 	} else {
-		dbs, dbErr := a.engine.Store.ListDatabases()
-		dbCount := len(a.engine.Cfg.Databases)
-		if dbErr == nil {
-			dbCount = len(dbs)
-		}
-		if len(failed) > 0 {
-			a.sendLog(mcp.LoggingLevelWarning, fmt.Sprintf("partial discovery — %d tables across %d databases (%d failed)", tableCount, dbCount, len(failed)))
-		} else {
-			a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("ready — %d tables across %d databases", tableCount, dbCount))
-		}
+		a.sendLog(mcp.LoggingLevelInfo, fmt.Sprintf("ready — %d tables across %d databases", dr.TablesFound, dr.DatabasesDiscovered))
 	}
 	a.refreshInstructions()
 
-	if len(failed) > 0 {
-		return mcp.NewToolResultError(fmt.Sprintf("discovery failed for: %s", strings.Join(failed, "; "))), nil
+	if len(dr.Failures) > 0 {
+		return mcp.NewToolResultError(fmt.Sprintf("discovery failed for: %s", strings.Join(dr.Failures, "; "))), nil
 	}
-	return mcp.NewToolResultText(fmt.Sprintf("Successfully discovered schema for %d databases", len(a.engine.Cfg.Databases))), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Successfully discovered schema for %d databases", dr.DatabasesDiscovered)), nil
 }
 
 func (a *App) handleListDatabases(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

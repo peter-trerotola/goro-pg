@@ -25,8 +25,10 @@ var rootCmd = &cobra.Command{
 	Short: "Read-only PostgreSQL explorer with schema intelligence",
 	Long:  "goro-pg provides read-only access to PostgreSQL databases with schema discovery, full-text search, and query execution.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip engine init for serve and version commands
-		if cmd.Name() == "serve" || cmd.Name() == "version" {
+		// Skip engine init for commands that manage their own lifecycle
+		// or don't need the engine (including Cobra built-ins).
+		switch cmd.Name() {
+		case "serve", "version", "help", "completion":
 			return nil
 		}
 		return initEngine(cmd)

@@ -42,17 +42,23 @@ func newQueryCmd() *cobra.Command {
 }
 
 // resolveSQL extracts the SQL string from args or stdin.
+// Requires explicit '-' argument to read from stdin; errors if no arg
+// is provided to avoid silently blocking on an interactive terminal.
 func resolveSQL(args []string) (string, error) {
-	if len(args) > 0 && args[0] != "-" {
+	if len(args) == 0 {
+		return "", fmt.Errorf("SQL query required (pass as argument or use '-' to read from stdin)")
+	}
+	if args[0] != "-" {
 		return args[0], nil
 	}
+	// Explicit '-' — read from stdin
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return "", fmt.Errorf("reading stdin: %w", err)
 	}
 	sql := strings.TrimSpace(string(data))
 	if sql == "" {
-		return "", fmt.Errorf("SQL query required")
+		return "", fmt.Errorf("SQL query required (stdin was empty)")
 	}
 	return sql, nil
 }

@@ -52,13 +52,25 @@ func (e *Engine) Connect(ctx context.Context) error {
 
 // Shutdown closes all connection pools and the knowledge map store.
 func (e *Engine) Shutdown() {
-	e.Pools.Close()
+	if e.Pools != nil {
+		e.Pools.Close()
+	}
 	if e.Store != nil {
 		e.Store.Close()
 	}
 }
 
 // --- Query ---
+
+// EnrichedError wraps the original error with schema hints while
+// preserving the original error for errors.Is/As.
+type EnrichedError struct {
+	Orig    error
+	Message string
+}
+
+func (e *EnrichedError) Error() string { return e.Message }
+func (e *EnrichedError) Unwrap() error { return e.Orig }
 
 // Query executes a read-only SQL query with table filter enforcement,
 // error enrichment, and schema context population.
@@ -69,7 +81,11 @@ func (e *Engine) Query(ctx context.Context, dbName, sql string) (*postgres.Query
 
 	result, err := postgres.ReadOnlyQuery(ctx, e.Pools, dbName, sql)
 	if err != nil {
-		return nil, fmt.Errorf("%s", e.EnrichError(err, dbName, sql))
+		enriched := e.enrichErrorMsg(err, dbName, sql)
+		if enriched == err.Error() {
+			return nil, err // no enrichment, preserve original
+		}
+		return nil, &EnrichedError{Orig: err, Message: enriched}
 	}
 
 	result.SchemaContext = e.BuildSchemaContext(dbName, sql)
@@ -101,7 +117,7 @@ func (e *Engine) Discover(ctx context.Context, dbName string) (*DiscoverResult, 
 		return nil, err
 	}
 
-	tableCount, _ := e.Store.CountTables()
+	tableCount, _ := e.Store.CountTablesForDB(dbName)
 	return &DiscoverResult{
 		DatabasesDiscovered: 1,
 		TablesFound:         tableCount,
@@ -241,8 +257,14 @@ func (e *Engine) BuildSchemaContext(dbName, sqlStr string) map[string][]knowledg
 	return ctx
 }
 
-// EnrichError appends schema hints to query errors involving unknown columns or tables.
+// EnrichError returns the enriched error message for an error, or the
+// original message if no enrichment applies. Exported for testing.
 func (e *Engine) EnrichError(err error, dbName, sqlStr string) string {
+	return e.enrichErrorMsg(err, dbName, sqlStr)
+}
+
+// enrichErrorMsg appends schema hints to query errors involving unknown columns or tables.
+func (e *Engine) enrichErrorMsg(err error, dbName, sqlStr string) string {
 	msg := err.Error()
 
 	if !strings.Contains(msg, "does not exist") {
